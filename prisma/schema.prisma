@@ -1,0 +1,148 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String    @id @default(uuid()) @db.Uuid
+  email              String    @unique
+  encrypted_password String?
+  raw_user_meta_data Json      @default("{}")
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  profile            Profile?
+
+  @@map("users")
+  @@schema("auth")
+}
+
+model Profile {
+  id         String   @id @db.Uuid
+  full_name  String   @default("")
+  email      String?
+  avatar_url String?
+  role       String   @default("user")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  user       User     @relation(fields: [id], references: [id])
+
+  @@map("profiles")
+  @@schema("public")
+}
+
+model Plan {
+  id          String       @id @default(uuid()) @db.Uuid
+  title       String
+  description String?      @default("")
+  owner_id    String       @db.Uuid
+  color       String?      @default("#3b82f6")
+  created_at  DateTime     @default(now()) @db.Timestamptz(6)
+  buckets     Bucket[]
+  members     PlanMember[]
+  tasks       Task[]
+  labels      TaskLabel[]
+
+  @@map("plans")
+  @@schema("public")
+}
+
+model PlanMember {
+  id      String @id @default(uuid()) @db.Uuid
+  plan_id String @db.Uuid
+  user_id String @db.Uuid
+  role    String @default("editor")
+  plan    Plan   @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+
+  @@unique([plan_id, user_id])
+  @@map("plan_members")
+  @@schema("public")
+}
+
+model Bucket {
+  id          String   @id @default(uuid()) @db.Uuid
+  plan_id     String   @db.Uuid
+  title       String
+  order_index Int      @default(0)
+  color       String?  @default("#6b7280")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  plan        Plan     @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  tasks       Task[]
+
+  @@map("buckets")
+  @@schema("public")
+}
+
+model Task {
+  id          String           @id @default(uuid()) @db.Uuid
+  plan_id     String           @db.Uuid
+  bucket_id   String?          @db.Uuid
+  title       String
+  description String?          @default("")
+  priority    String?          @default("medium")
+  status      String?          @default("not_started")
+  due_date    DateTime?        @db.Date
+  assigned_to String?          @db.Uuid
+  created_by  String           @db.Uuid
+  order_index Int              @default(0)
+  created_at  DateTime         @default(now()) @db.Timestamptz(6)
+  plan        Plan             @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  bucket      Bucket?          @relation(fields: [bucket_id], references: [id])
+  checklists  TaskChecklist[]
+  comments    TaskComment[]
+  assignments TaskAssignment[]
+
+  @@map("tasks")
+  @@schema("public")
+}
+
+model TaskChecklist {
+  id           String  @id @default(uuid()) @db.Uuid
+  task_id      String  @db.Uuid
+  title        String
+  is_completed Boolean @default(false)
+  order_index  Int     @default(0)
+  task         Task    @relation(fields: [task_id], references: [id], onDelete: Cascade)
+
+  @@map("task_checklists")
+  @@schema("public")
+}
+
+model TaskAssignment {
+  task_id String @db.Uuid
+  user_id String @db.Uuid
+  task    Task   @relation(fields: [task_id], references: [id], onDelete: Cascade)
+
+  @@id([task_id, user_id])
+  @@map("task_assignments")
+  @@schema("public")
+}
+
+model TaskComment {
+  id         String   @id @default(uuid()) @db.Uuid
+  task_id    String   @db.Uuid
+  user_id    String   @db.Uuid
+  content    String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  task       Task     @relation(fields: [task_id], references: [id], onDelete: Cascade)
+
+  @@map("task_comments")
+  @@schema("public")
+}
+
+model TaskLabel {
+  id         String   @id @default(uuid()) @db.Uuid
+  plan_id    String   @db.Uuid
+  name       String
+  color      String   @default("#3b82f6")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  plan       Plan     @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+
+  @@map("task_labels")
+  @@schema("public")
+}
